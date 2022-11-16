@@ -89,7 +89,7 @@ There is only one attribute `errMsg` on `WalineErrorInstance` to indicate the re
 
 ### Precautions
 
-::: warning Remember to destory the instance
+::: warning Remember to destroy the instance
 
 In order for Waline to properly release resources, please manually call `WalineInstance.destroy()` before removing the element where Waline is mounted.
 

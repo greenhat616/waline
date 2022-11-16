@@ -81,19 +81,22 @@
 
 <script lang="ts">
 import { useStyleTag } from '@vueuse/core';
-import { computed, defineComponent, onMounted, provide, ref, watch } from 'vue';
+import {
+  computed,
+  defineComponent,
+  onMounted,
+  onUnmounted,
+  provide,
+  ref,
+  watch,
+} from 'vue';
 import Reaction from './ArticleReaction.vue';
 import CommentBox from './CommentBox.vue';
 import CommentCard from './CommentCard.vue';
 import { LoadingIcon } from './Icons';
 import { useUserInfo, useLikeStorage } from '../composables';
 import { defaultLocales } from '../config';
-import {
-  deleteComment,
-  fetchComment,
-  likeComment,
-  updateComment,
-} from '../api';
+import { deleteComment, getComment, likeComment, updateComment } from '../api';
 import { getConfig, getDarkStyle } from '../utils';
 
 import type { PropType } from 'vue';
@@ -263,8 +266,9 @@ export default defineComponent({
 
   props: SHOULD_VALIDATE ? propsWithValidate : props,
 
-  setup(props) {
-    const config = computed(() => getConfig(props as unknown as WalineProps));
+  setup(_props) {
+    const props = _props as unknown as WalineProps;
+    const config = computed(() => getConfig(props));
 
     const userInfo = useUserInfo();
     const likeStorage = useLikeStorage();
@@ -287,7 +291,7 @@ export default defineComponent({
     // eslint-disable-next-line vue/no-setup-props-destructure
     let abort: () => void;
 
-    const fetchCommentData = (pageNumber: number): void => {
+    const getCommentData = (pageNumber: number): void => {
       const { serverURL, path, pageSize } = config.value;
       const controller = new AbortController();
 
@@ -295,7 +299,7 @@ export default defineComponent({
 
       abort?.();
 
-      fetchComment({
+      getComment({
         serverURL,
         lang: config.value.lang,
         path,
@@ -322,12 +326,12 @@ export default defineComponent({
       abort = controller.abort.bind(controller);
     };
 
-    const loadMore = (): void => fetchCommentData(page.value + 1);
+    const loadMore = (): void => getCommentData(page.value + 1);
 
     const refresh = (): void => {
       count.value = 0;
       data.value = [];
-      fetchCommentData(1);
+      getCommentData(1);
     };
 
     const onSortByChange = (item: SortKeyItems): void => {
@@ -462,9 +466,14 @@ export default defineComponent({
 
     provide('config', config);
 
-    watch(() => (props as unknown as WalineProps).path, refresh);
-
-    onMounted(() => refresh());
+    onMounted(() => {
+      watch(
+        () => [props.serverURL, props.path],
+        () => refresh(),
+        { immediate: true }
+      );
+    });
+    onUnmounted(() => abort?.());
 
     return {
       config,

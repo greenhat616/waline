@@ -94,7 +94,7 @@
             v-show="emoji.tabs.length"
             ref="emojiButtonRef"
             class="wl-action"
-            :class="{ actived: showEmoji }"
+            :class="{ active: showEmoji }"
             :title="locale.emoji"
             @click="showEmoji = !showEmoji"
           >
@@ -105,7 +105,7 @@
             v-if="config.search"
             ref="gifButtonRef"
             class="wl-action"
-            :class="{ actived: showGif }"
+            :class="{ active: showGif }"
             :title="locale.gif"
             @click="showGif = !showGif"
           >
@@ -132,7 +132,7 @@
 
           <button
             class="wl-action"
-            :class="{ actived: showPreview }"
+            :class="{ active: showPreview }"
             :title="locale.preview"
             @click="showPreview = !showPreview"
           >
@@ -287,7 +287,7 @@ import {
   GifIcon,
 } from './Icons';
 import ImageWall from './ImageWall.vue';
-import { login, postComment } from '../api';
+import { addComment, login } from '../api';
 import { useEditor, useUserMeta, useUserInfo } from '../composables';
 import {
   getEmojis,
@@ -532,7 +532,7 @@ export default defineComponent({
 
       isSubmitting.value = true;
 
-      postComment({
+      addComment({
         serverURL,
         lang,
         token: userInfo.value?.token,
@@ -590,8 +590,12 @@ export default defineComponent({
       const height = 800;
       const left = (window.innerWidth - width) / 2;
       const top = (window.innerHeight - height) / 2;
+      const query = new URLSearchParams({
+        lng: lang,
+        token: userInfo.value!.token,
+      });
       const handler = window.open(
-        `${serverURL}/ui/profile?lng=${encodeURIComponent(lang)}`,
+        `${serverURL}/ui/profile?${query.toString()}`,
         '_blank',
         `width=${width},height=${height},left=${left},top=${top},scrollbars=no,resizable=no,status=no,location=no,toolbar=no,menubar=no`
       );
@@ -668,25 +672,8 @@ export default defineComponent({
       { immediate: true }
     );
 
-    watch(showGif, async (showGif) => {
-      if (!showGif) return;
-
-      const searchOptions = config.value.search as WalineSearchOptions;
-
-      // clear input
-      if (gifSearchInputRef.value) gifSearchInputRef.value.value = '';
-
-      searchResults.loading = true;
-
-      searchResults.list = searchOptions.default
-        ? await searchOptions.default()
-        : await searchOptions.search('');
-
-      searchResults.loading = false;
-    });
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onMessageRecive = ({ data }: any): void => {
+    const onMessageReceive = ({ data }: any): void => {
       if (!data || data.type !== 'profile') return;
 
       userInfo.value = { ...userInfo.value, ...data.data };
@@ -700,10 +687,28 @@ export default defineComponent({
 
     onMounted(() => {
       document.body.addEventListener('click', popupHandler);
-      window.addEventListener('message', onMessageRecive);
+      window.addEventListener('message', onMessageReceive);
       if (props.edit?.objectId) {
         editor.value = props.edit.orig;
       }
+
+      // watch gif
+      watch(showGif, async (showGif) => {
+        if (!showGif) return;
+
+        const searchOptions = config.value.search as WalineSearchOptions;
+
+        // clear input
+        if (gifSearchInputRef.value) gifSearchInputRef.value.value = '';
+
+        searchResults.loading = true;
+
+        searchResults.list = searchOptions.default
+          ? await searchOptions.default()
+          : await searchOptions.search('');
+
+        searchResults.loading = false;
+      });
 
       // watch editor
       watch(
@@ -740,7 +745,7 @@ export default defineComponent({
 
     onUnmounted(() => {
       document.body.removeEventListener('click', popupHandler);
-      window.removeEventListener('message', onMessageRecive);
+      window.removeEventListener('message', onMessageReceive);
     });
 
     return {
